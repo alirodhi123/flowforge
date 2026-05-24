@@ -58,6 +58,14 @@
                 <div id="createMsg"></div>
                 <input type="text" id="wfName" placeholder="Nama workflow"/>
                 <input type="text" id="wfDesc" placeholder="Deskripsi (opsional)"/>
+
+                <div id="stepsContainer">
+                    <div class="step-row">
+                        <input type="text" placeholder="Nama step" class="step-name" style="width:40%;display:inline-block"/>
+                        <input type="text" placeholder="Depends on (pisah koma, kosongkan jika tidak ada)" class="step-deps" style="width:55%;display:inline-block"/>
+                    </div>
+                </div>
+                <button onclick="addStep()" style="background:#6c757d;margin-bottom:10px">+ Tambah Step</button>
                 <button onclick="createWorkflow()">Buat</button>
             </div>
 
@@ -113,29 +121,52 @@
             document.getElementById('logoutBtn').classList.add('hidden')
         }
 
+        function addStep() {
+            const div = document.createElement('div')
+            div.className = 'step-row'
+            div.innerHTML = `
+                <input type="text" placeholder="Nama step" class="step-name" style="width:40%;display:inline-block"/>
+                <input type="text" placeholder="Depends on (pisah koma, kosongkan jika tidak ada)" class="step-deps" style="width:55%;display:inline-block"/>
+                <button onclick="this.parentElement.remove()" style="background:#e74c3c;padding:8px">✕</button>
+            `
+            document.getElementById('stepsContainer').appendChild(div)
+        }
+
         async function createWorkflow() {
             const name = document.getElementById('wfName').value
             const desc = document.getElementById('wfDesc').value
             if (!name) return showMsg('createMsg', 'Nama workflow wajib diisi', 'err')
+
+            const stepRows = document.querySelectorAll('.step-row')
+            if (stepRows.length === 0) return showMsg('createMsg', 'Minimal 1 step', 'err')
+
+            const steps = {}
+            stepRows.forEach((row, index) => {
+                const stepName = row.querySelector('.step-name').value || `Step ${index + 1}`
+                const stepDeps = row.querySelector('.step-deps').value
+                const stepId = `step${index + 1}`
+                steps[stepId] = {
+                    name: stepName,
+                    type: "http",
+                    depends_on: stepDeps ? stepDeps.split(',').map(s => s.trim()).filter(s => s) : []
+                }
+            })
+
             const res = await fetch(`${API}/workflows`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
-                    name,
-                    description: desc,
-                    definition: {
-                        steps: {
-                            step1: { name: "Step 1", type: "http", depends_on: [] },
-                            step2: { name: "Step 2", type: "script", depends_on: ["step1"] }
-                        }
-                    }
-                })
+                body: JSON.stringify({ name, description: desc, definition: { steps } })
             })
             const data = await res.json()
             if (res.ok) {
                 showMsg('createMsg', 'Workflow berhasil dibuat!', 'ok')
                 document.getElementById('wfName').value = ''
                 document.getElementById('wfDesc').value = ''
+                document.getElementById('stepsContainer').innerHTML = `
+                    <div class="step-row">
+                        <input type="text" placeholder="Nama step" class="step-name" style="width:40%;display:inline-block"/>
+                        <input type="text" placeholder="Depends on (pisah koma, kosongkan jika tidak ada)" class="step-deps" style="width:55%;display:inline-block"/>
+                    </div>`
                 loadWorkflows()
             } else {
                 showMsg('createMsg', 'Gagal membuat workflow', 'err')

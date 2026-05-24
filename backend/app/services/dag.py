@@ -6,7 +6,8 @@ def topological_sort(steps: dict) -> list:
     
     for step_id, step in steps.items():
         for dep in step.get("depends_on", []):
-            in_degree[step_id] += 1
+            if dep in in_degree:
+                in_degree[step_id] += 1
 
     queue = deque([s for s in in_degree if in_degree[s] == 0])
     order = []
